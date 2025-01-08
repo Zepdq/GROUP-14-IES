@@ -89,14 +89,41 @@ class Client:
                 return "UPLOAD_FAILED"
         return "File not found for upload."
 
-    def batch_download_files(self, file_names):
+    def batch_download_files(self, file_names_input):
         start_time = time.time()
         download_results = {}
+
+        # Check if the input is correct
+        if isinstance(file_names_input, list):
+            file_names = [file_name.strip() for file_name in file_names_input]
+        else:
+            raise ValueError("The input must be a list of filenames.")
+
         for file_name in file_names:
-            response = self.download_file(file_name)
-            download_results[file_name] = response
+            attempts = 0
+            max_attempts = 3
+            while attempts < max_attempts:
+                response = self.download_file(file_name)
+                if "downloaded successfully" in response.lower():
+                    download_results[file_name] = response
+                    break
+                elif "not found" in response.lower(): # if file is not found
+                    attempts += 1
+                    print(f"The file '{file_name}' does not exist. Attempts remaining: {max_attempts - attempts}.")
+                    file_name = input("Input a correct filename: ").strip()
+
+                # Unexpected server response
+                else:
+                    print(f"Unexpected server response: {response}")
+                    break
+
+            # When limit is overdue
+            if attempts == max_attempts:
+                print(f"Skipping file '{file_name}' after {max_attempts} failed attempts.")
+
         total_time = time.time() - start_time
         return {"results": download_results, "time_taken": total_time}
+
 
     def logout(self):
         self.send("LOGOUT")
